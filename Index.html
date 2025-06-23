@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copa do Mundo FIFA 2025 - Buscador de Times</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f4f8; /* Azul claro */
+            padding-top: 40px;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+            transition: all 0.3s ease;
+        }
+
+        h1 {
+            color: #2c3e50; /* Azul escuro */
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 600;
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 35px;
+            gap: 10px; /* Espaçamento entre input e botão */
+        }
+
+        input[type="text"] {
+            padding: 15px 20px;
+            border: 1px solid #c2e0ff; /* Borda mais suave */
+            border-radius: 30px; /* Mais arredondado */
+            font-size: 1.1em;
+            width: 65%;
+            outline: none;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.2);
+        }
+
+        button {
+            padding: 15px 25px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-3px);
+        }
+
+        #results {
+            margin-top: 30px;
+            text-align: left;
+            border-top: 2px solid #e0e0e0;
+            padding-top: 25px;
+        }
+
+        #results h2 {
+            color: #007bff;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .match-card {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease;
+        }
+
+        .match-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .match-card p {
+            margin: 5px 0;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .match-card strong {
+            color: #333;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Busque Partidas de Futebol!</h1>
+        <div class="search-box">
+            <input type="text" id="team-name-input" placeholder="Digite o nome do time (Ex: Real Madrid)">
+            <button id="search-button">Buscar Partidas</button>
+        </div>
+        <div id="results">
+            </div>
+    </div>
+
+    <script>
+        // JAVASCRIPT VAI AQUI
+        document.getElementById('search-button').addEventListener('click', async () => {
+            const teamName = document.getElementById('team-name-input').value.trim();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = ''; // Limpa resultados anteriores
+
+            if (!teamName) {
+                resultsDiv.innerHTML = `<p class="error-message">Por favor, digite o nome de um time.</p>`;
+                return;
+            }
+
+            // --- Substitua '56af81ac6b5c49628b28c1e04188cc0f' pela sua chave de API ---
+            const apiKey = 'f9a5acea13b64f07a3c7cf5de24cdd2d'; 
+            const baseUrl = 'https://api.football-data.org/v4';
+
+            // Adiciona um spinner de carregamento
+            resultsDiv.innerHTML = '<p>Buscando time...</p>';
+
+            try {
+                // 1. Buscar o ID do time
+                const teamSearchUrl = `${baseUrl}/teams?limit=5`; // Limita a 5 resultados para a busca
+                const teamSearchResponse = await fetch(teamSearchUrl, {
+                    headers: { 'X-Auth-Token': apiKey }
+                });
+                const teamSearchData = await teamSearchResponse.json();
+
+                let foundTeam = null;
+                // Procura o time exato ou o mais próximo
+                if (teamSearchData.teams && teamSearchData.teams.length > 0) {
+                    foundTeam = teamSearchData.teams.find(team => 
+                        team.name.toLowerCase() === teamName.toLowerCase() ||
+                        team.shortName.toLowerCase() === teamName.toLowerCase()
+                    ) || teamSearchData.teams[0]; // Pega o primeiro se não achar exato
+                }
+                
+                if (!foundTeam) {
+                    resultsDiv.innerHTML = `<p class="error-message">Time "${teamName}" não encontrado. Verifique a ortografia ou tente um nome mais exato.</p>`;
+                    return;
+                }
+
+                resultsDiv.innerHTML = `<p>Buscando partidas de ${foundTeam.name}...</p>`;
+
+                // 2. Buscar as partidas do time (últimos 11 anos: 2014 a 2025)
+                // A API pode ter limites no período de busca.
+                // Vou buscar por status 'FINISHED' e 'SCHEDULED' para ter passados e futuros (se disponíveis)
+                const matchesUrl = `${baseUrl}/teams/${foundTeam.id}/matches?dateFrom=2014-01-01&dateTo=2025-12-31`; // Ajuste o período conforme a API permite
+                
+                const matchesResponse = await fetch(matchesUrl, {
+                    headers: { 'X-Auth-Token': apiKey }
+                });
+
+                if (!matchesResponse.ok) {
+                    throw new Error(`Erro HTTP: ${matchesResponse.status} - ${matchesResponse.statusText}. Provavelmente, limite de requisições atingido ou problema com a chave API.`);
+                }
+
+                const matchesData = await matchesResponse.json();
+
+                if (matchesData.matches && matchesData.matches.length > 0) {
+                    resultsDiv.innerHTML = `<h2>Partidas de ${foundTeam.name}</h2>`;
+                    matchesData.matches.forEach(match => {
+                        const utcDate = new Date(match.utcDate);
+                        const localDate = utcDate.toLocaleDateString('pt-BR');
+                        const localTime = utcDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                        let scoreInfo = '';
+                        if (match.score.fullTime.home !== null && match.score.fullTime.away !== null) {
+                            scoreInfo = `<strong>Placar:</strong> ${match.score.fullTime.home} x ${match.score.fullTime.away}`;
+                        } else {
+                            scoreInfo = `Partida agendada`;
+                        }
+
+                        // A Football-Data.org API não fornece facilmente juiz, escalação, designers, etc., para cada partida no plano gratuito.
+                        // Essas informações geralmente estão disponíveis em planos pagos ou exigem chamadas adicionais complexas.
+                        resultsDiv.innerHTML += `
+                            <div class="match-card">
+                                <p><strong>Competição:</strong> ${match.competition.name}</p>
+                                <p><strong>Rodada:</strong> ${match.stage}, Rodada ${match.matchday}</p>
+                                <p><strong>Partida:</strong> ${match.homeTeam.name} vs ${match.awayTeam.name}</p>
+                                <p><strong>Data:</strong> ${localDate} às ${localTime}</p>
+                                <p>${scoreInfo}</p>
+                                <p><strong>Status:</strong> ${match.status}</p>
+                                <p><strong>Local:</strong> ${match.venue ? match.venue : 'Não informado'}</p>
+                                <p><strong>Juiz:</strong> Não disponível na API gratuita para todas as partidas.</p>
+                                <p><strong>Escalação:</strong> Não disponível na API gratuita para todas as partidas.</p>
+                                </div>
+                        `;
+                    });
+                } else {
+                    resultsDiv.innerHTML = `<p>Nenhuma partida encontrada para "${foundTeam.name}" no período de 2014 a 2025, ou a API gratuita não tem esses dados.</p>`;
+                }
+
+            } catch (error) {
+                console.error('Erro ao buscar informações do time/partida:', error);
+                resultsDiv.innerHTML = `<p class="error-message">Ocorreu um erro ao buscar os dados. Verifique sua chave de API ou tente novamente mais tarde. Detalhes: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+          </html>
